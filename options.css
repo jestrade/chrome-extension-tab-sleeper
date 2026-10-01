@@ -9,3 +9,5 @@ textarea { min-height: 120px; resize: vertical; }
 small { display: block; margin-top: 6px; color: #6b7280; }
 button { margin-top: 20px; padding: 11px 20px; border: 0; border-radius: 8px; background: #111827; color: white; font-weight: 600; cursor: pointer; }
 #status { display: inline-block; margin-left: 12px; color: #4b5563; }
+.card h2 { margin-top: 0; }
+.card p { font-size: 12px; opacity: .75; line-height: 1.4; }

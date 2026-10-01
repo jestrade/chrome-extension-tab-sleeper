@@ -1,45 +1,50 @@
-const DEFAULT_SETTINGS = {
+const DEFAULTS = {
   enabled: true,
   inactivityMinutes: 30,
   checkIntervalMinutes: 5,
   excludePinned: true,
   excludePlayingAudio: true,
-  excludedDomains: []
+  excludedDomains: [],
+  memoryPressureEnabled: true,
+  memoryPressurePercent: 20,
+  memoryPressureInactivityMinutes: 10
 };
 
-const enabled = document.getElementById("enabled");
-const inactivityMinutes = document.getElementById("inactivityMinutes");
-const checkIntervalMinutes = document.getElementById("checkIntervalMinutes");
-const excludePinned = document.getElementById("excludePinned");
-const excludePlayingAudio = document.getElementById("excludePlayingAudio");
-const excludedDomains = document.getElementById("excludedDomains");
-const save = document.getElementById("save");
-const status = document.getElementById("status");
+const $ = id => document.getElementById(id);
 
 async function load() {
-  const settings = await chrome.storage.local.get(DEFAULT_SETTINGS);
-  enabled.checked = settings.enabled;
-  inactivityMinutes.value = String(settings.inactivityMinutes);
-  checkIntervalMinutes.value = String(settings.checkIntervalMinutes);
-  excludePinned.checked = settings.excludePinned;
-  excludePlayingAudio.checked = settings.excludePlayingAudio;
-  excludedDomains.value = settings.excludedDomains.join("\n");
+  const settings = await chrome.storage.sync.get(DEFAULTS);
+  $('enabled').checked = settings.enabled;
+  $('checkIntervalMinutes').value = settings.checkIntervalMinutes;
+  $('inactivityMinutes').value = settings.inactivityMinutes;
+  $('excludePinned').checked = settings.excludePinned;
+  $('excludePlayingAudio').checked = settings.excludePlayingAudio;
+  $('excludedDomains').value = settings.excludedDomains.join('\n');
+  $('memoryPressureEnabled').checked = settings.memoryPressureEnabled;
+  $('memoryPressurePercent').value = settings.memoryPressurePercent;
+  $('memoryPressureInactivityMinutes').value = settings.memoryPressureInactivityMinutes;
 }
 
-save.addEventListener("click", async () => {
-  const domains = excludedDomains.value.split("\n").map(d => d.trim()).filter(Boolean);
+$('save').addEventListener('click', async () => {
+  const excludedDomains = $('excludedDomains').value
+    .split(/\r?\n/)
+    .map(value => value.trim())
+    .filter(Boolean);
 
-  await chrome.storage.local.set({
-    enabled: enabled.checked,
-    inactivityMinutes: Number(inactivityMinutes.value),
-    checkIntervalMinutes: Number(checkIntervalMinutes.value),
-    excludePinned: excludePinned.checked,
-    excludePlayingAudio: excludePlayingAudio.checked,
-    excludedDomains: domains
+  await chrome.storage.sync.set({
+    enabled: $('enabled').checked,
+    checkIntervalMinutes: Math.max(1, Number($('checkIntervalMinutes').value)),
+    inactivityMinutes: Math.max(1, Number($('inactivityMinutes').value)),
+    excludePinned: $('excludePinned').checked,
+    excludePlayingAudio: $('excludePlayingAudio').checked,
+    excludedDomains,
+    memoryPressureEnabled: $('memoryPressureEnabled').checked,
+    memoryPressurePercent: Math.min(50, Math.max(5, Number($('memoryPressurePercent').value))),
+    memoryPressureInactivityMinutes: Math.max(1, Number($('memoryPressureInactivityMinutes').value))
   });
 
-  status.textContent = "Settings saved.";
-  setTimeout(() => status.textContent = "", 2000);
+  $('status').textContent = 'Saved.';
+  setTimeout(() => $('status').textContent = '', 1500);
 });
 
 load();

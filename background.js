@@ -1,69 +1,56 @@
-const DEFAULT_SETTINGS = {
+const DEFAULTS = {
   enabled: true,
   inactivityMinutes: 30,
   checkIntervalMinutes: 5,
   excludePinned: true,
   excludePlayingAudio: true,
-  excludedDomains: []
+  excludedDomains: [],
+  memoryPressureEnabled: true,
+  memoryPressurePercent: 20,
+  memoryPressureInactivityMinutes: 10
 };
 
-const ALARM_NAME = "tab-sleep-check";
-
 async function getSettings() {
-  const stored = await chrome.storage.local.get(DEFAULT_SETTINGS);
-  return { ...DEFAULT_SETTINGS, ...stored };
-}
-
-async function scheduleAlarm() {
-  const settings = await getSettings();
-  chrome.alarms.clear(ALARM_NAME);
-  if (!settings.enabled) return;
-  chrome.alarms.create(ALARM_NAME, {
-    periodInMinutes: Math.max(1, settings.checkIntervalMinutes)
-  });
+  return await chrome.storage.sync.get(DEFAULTS);
 }
 
 function getHostname(url) {
-  try { return new URL(url).hostname.toLowerCase(); }
-  catch { return ""; }
+  try {
+    return new URL(url).hostname.toLowerCase();
+  } catch {
+    return '';
+  }
 }
 
-function isExcludedDomain(hostname, excludedDomains) {
-  return excludedDomains.some((domain) => {
-    const normalized = domain.trim().toLowerCase()
-      .replace(/^https?:\/\//, "").replace(/\/.*$/, "");
-    return hostname === normalized || hostname.endsWith(`.${normalized}`);
+function isExcludedDomain(url, excludedDomains) {
+  const hostname = getHostname(url);
+  return excludedDomains.some(domain => {
+    const normalized = domain.trim().toLowerCase().replace(/^https?:\\/\\//, '').replace(/\\/$/, '');
+    return normalized && (hostname === normalized || hostname.endsWith(`.${normalized}`));
   });
 }
 
-function isDiscardable(tab, settings) {
+function isDiscardable(tab, settings, inactivityMinutes) {
   if (!tab.id || tab.active || tab.discarded) return false;
   if (settings.excludePinned && tab.pinned) return false;
   if (settings.excludePlayingAudio && tab.audible) return false;
+  if (isExcludedDomain(tab.url || '', settings.excludedDomains)) return false;
 
-  if (!tab.url ||
-      tab.url.startsWith("chrome://") ||
-      tab.url.startsWith("chrome-extension://") ||
-      tab.url.startsWith("edge://") ||
-      tab.url.startsWith("about:")) {
-    return false;
-  }
-
-  return !isExcludedDomain(getHostname(tab.url), settings.excludedDomains);
+  const lastAccessed = tab.lastAccessed || 0;
+  const inactiveMs = Date.now() - lastAccessed;
+  return inactiveMs >= inactivityMinutes * 60 * 1000;
 }
 
-async function sleepInactiveTabs() {
+async function discardInactiveTabs(inactivityMinutesOverride = null) {
   const settings = await getSettings();
-  if (!settings.enabled) return { discarded: 0, checked: 0 };
+  if (!settings.enabled && inactivityMinutesOverride === null) return { discarded: 0 };
 
+  const inactivityMinutes = inactivityMinutesOverride ?? settings.inactivityMinutes;
   const tabs = await chrome.tabs.query({});
-  const now = Date.now();
-  const timeout = settings.inactivityMinutes * 60 * 1000;
   let discarded = 0;
 
   for (const tab of tabs) {
-    if (!isDiscardable(tab, settings) || !tab.lastAccessed) continue;
-    if (now - tab.lastAccessed < timeout) continue;
+    if (!isDiscardable(tab, settings, inactivityMinutes)) continue;
 
     try {
       await chrome.tabs.discard(tab.id);
@@ -73,64 +60,90 @@ async function sleepInactiveTabs() {
     }
   }
 
-  return { discarded, checked: tabs.length };
+  return { discarded };
 }
 
-async function getProcessDiagnostics() {
-  if (!chrome.processes?.getProcessInfo) return { supported: false, processes: [] };
-  try {
-    const processMap = await chrome.processes.getProcessInfo([], true);
-    const tabs = await chrome.tabs.query({});
-    const tabMap = new Map(tabs.map(tab => [tab.id, tab]));
-    const processes = Object.entries(processMap).map(([id, process]) => ({
-      processId: Number(id), type: process.type, cpu: process.cpu ?? 0,
-      privateMemory: process.privateMemory ?? 0,
-      tabs: (process.tasks || []).map(t => tabMap.get(t.tabId)).filter(Boolean).map(t => ({id:t.id,title:t.title||'Untitled'}))
-    })).filter(p => p.cpu > 0 || p.privateMemory > 0).sort((a,b) => b.cpu-a.cpu);
-    return { supported:true, processes:processes.slice(0,25) };
-  } catch (error) { return { supported:false, error:error.message, processes:[] }; }
+async function getMemoryStatus() {
+  if (!chrome.system?.memory?.getInfo) {
+    return { available: false };
+  }
+
+  const info = await chrome.system.memory.getInfo();
+  const availablePercent = info.capacity > 0
+    ? (info.availableCapacity / info.capacity) * 100
+    : 0;
+
+  return {
+    available: true,
+    capacity: info.capacity,
+    availableCapacity: info.availableCapacity,
+    availablePercent: Number(availablePercent.toFixed(1))
+  };
+}
+
+async function checkMemoryPressure() {
+  const settings = await getSettings();
+  if (!settings.enabled || !settings.memoryPressureEnabled) return { discarded: 0, memoryPressure: false };
+
+  const memory = await getMemoryStatus();
+  if (!memory.available) return { discarded: 0, memoryPressure: false };
+
+  const memoryPressure = memory.availablePercent <= settings.memoryPressurePercent;
+  if (!memoryPressure) return { discarded: 0, memoryPressure: false, memory };
+
+  const result = await discardInactiveTabs(settings.memoryPressureInactivityMinutes);
+  return { ...result, memoryPressure: true, memory };
+}
+
+async function setupAlarm() {
+  const settings = await getSettings();
+  await chrome.alarms.clear('tab-sleep-check');
+
+  if (settings.enabled) {
+    chrome.alarms.create('tab-sleep-check', {
+      periodInMinutes: Math.max(1, settings.checkIntervalMinutes)
+    });
+  }
 }
 
 chrome.runtime.onInstalled.addListener(async () => {
-  const existing = await chrome.storage.local.get(Object.keys(DEFAULT_SETTINGS));
-  await chrome.storage.local.set({ ...DEFAULT_SETTINGS, ...existing });
-  await scheduleAlarm();
+  const current = await chrome.storage.sync.get(DEFAULTS);
+  await chrome.storage.sync.set({ ...DEFAULTS, ...current });
+  await setupAlarm();
 });
 
-chrome.runtime.onStartup.addListener(scheduleAlarm);
+chrome.runtime.onStartup.addListener(setupAlarm);
 
-chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name === ALARM_NAME) await sleepInactiveTabs();
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'sync') setupAlarm();
 });
 
-chrome.storage.onChanged.addListener(async (changes) => {
-  if (changes.enabled || changes.checkIntervalMinutes ||
-      changes.inactivityMinutes || changes.excludePinned ||
-      changes.excludePlayingAudio || changes.excludedDomains) {
-    await scheduleAlarm();
-  }
+chrome.alarms.onAlarm.addListener(async alarm => {
+  if (alarm.name !== 'tab-sleep-check') return;
+
+  await discardInactiveTabs();
+  await checkMemoryPressure();
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.type === "sleepNow") {
-    sleepInactiveTabs()
-      .then(result => sendResponse({ success: true, ...result }))
-      .catch(error => sendResponse({ success: false, error: error.message }));
+  if (message?.type === 'sleepNow') {
+    discardInactiveTabs()
+      .then(sendResponse)
+      .catch(error => sendResponse({ error: error.message }));
     return true;
   }
 
-  if (message.type === "getDiagnostics") {
-    getProcessDiagnostics().then(sendResponse).catch(error => sendResponse({supported:false,error:error.message,processes:[]}));
+  if (message?.type === 'getMemoryStatus') {
+    getMemoryStatus()
+      .then(sendResponse)
+      .catch(error => sendResponse({ available: false, error: error.message }));
     return true;
   }
 
-  if (message.type === "getStats") {
-    chrome.tabs.query({}).then(tabs => {
-      sendResponse({
-        total: tabs.length,
-        sleeping: tabs.filter(tab => tab.discarded).length
-      });
-    });
+  if (message?.type === 'checkMemoryPressure') {
+    checkMemoryPressure()
+      .then(sendResponse)
+      .catch(error => sendResponse({ error: error.message }));
     return true;
   }
 });

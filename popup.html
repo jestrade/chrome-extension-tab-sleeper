@@ -1,45 +1,46 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Tab Sleep</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <main class="container">
-    <header>
-      <div>
-        <h1>Tab Sleep</h1>
-        <p>Free memory from inactive tabs</p>
-      </div>
-      <label class="switch">
-        <input type="checkbox" id="enabled">
-        <span class="slider"></span>
+  <main>
+    <h1>Tab Sleep</h1>
+    <div id="stats">Loading...</div>
+
+    <section class="card">
+      <label class="switch-row">
+        <span>Automatic sleeping</span>
+        <input id="enabled" type="checkbox">
       </label>
-    </header>
-
-    <section class="stats">
-      <div class="stat"><strong id="sleepingTabs">0</strong><span>Sleeping</span></div>
-      <div class="stat"><strong id="totalTabs">0</strong><span>Total tabs</span></div>
+      <label>
+        Inactive for
+        <select id="inactivityMinutes">
+          <option value="10">10 minutes</option>
+          <option value="15">15 minutes</option>
+          <option value="30">30 minutes</option>
+          <option value="60">1 hour</option>
+          <option value="120">2 hours</option>
+        </select>
+      </label>
     </section>
 
-    <section class="setting">
-      <label for="inactivityMinutes">Sleep inactive tabs after</label>
-      <select id="inactivityMinutes">
-        <option value="5">5 minutes</option>
-        <option value="15">15 minutes</option>
-        <option value="30">30 minutes</option>
-        <option value="60">1 hour</option>
-        <option value="120">2 hours</option>
-        <option value="240">4 hours</option>
-        <option value="480">8 hours</option>
-      </select>
+    <section class="card">
+      <div class="section-title">Memory</div>
+      <div id="memoryStatus">Checking...</div>
+      <label class="switch-row">
+        <span>Memory pressure mode</span>
+        <input id="memoryPressureEnabled" type="checkbox">
+      </label>
+      <button id="checkMemory">Check memory pressure</button>
     </section>
 
-    <button id="sleepNow">Sleep inactive tabs now</button>
-    <button id="options" class="secondary">Settings</button>
-    <div id="status"></div>
+    <button id="sleepNow" class="primary">Sleep inactive tabs now</button>
+    <button id="settings">Settings</button>
+    <div id="message" class="message"></div>
   </main>
   <script src="popup.js"></script>
 </body>

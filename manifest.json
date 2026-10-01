@@ -1,25 +1,20 @@
 {
   "manifest_version": 3,
   "name": "Tab Sleep",
-  "version": "2.0.0",
-  "description": "Automatically discards inactive Chrome tabs and provides on-demand CPU and memory diagnostics.",
+  "version": "3.0.0",
+  "description": "Automatically discard inactive tabs to reduce memory usage in Chrome Stable.",
   "permissions": [
     "tabs",
     "storage",
     "alarms",
-    "processes"
+    "system.memory"
   ],
   "background": {
     "service_worker": "background.js"
   },
   "action": {
-    "default_title": "Tab Sleep",
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_title": "Tab Sleep"
   },
-  "options_page": "options.html",
-  "icons": {
-    "16": "icons/icon16.png",
-    "48": "icons/icon48.png",
-    "128": "icons/icon128.png"
-  }
+  "options_page": "options.html"
 }

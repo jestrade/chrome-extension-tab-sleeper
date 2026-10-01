@@ -21,3 +21,5 @@ button.secondary { margin-top: 8px; background: white; color: #374151; border: 1
 input:checked + .slider { background: #111827; }
 input:checked + .slider::before { transform: translateX(18px); }
 .diagnostics{margin-top:14px;padding:12px;background:white;border:1px solid #e5e7eb;border-radius:10px}.hidden{display:none}.diagnosticsHeader{display:flex;justify-content:space-between;margin-bottom:8px;font-size:12px}.process{padding:9px 0;border-top:1px solid #f0f0f0}.process:first-child{border-top:0}.processTitle{font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.processMeta{margin-top:3px;color:#6b7280;font-size:10px}.processTab{margin-top:4px;color:#374151;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.section-title { font-weight: 600; margin-bottom: 8px; }
