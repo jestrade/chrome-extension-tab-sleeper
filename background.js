@@ -76,6 +76,21 @@ async function sleepInactiveTabs() {
   return { discarded, checked: tabs.length };
 }
 
+async function getProcessDiagnostics() {
+  if (!chrome.processes?.getProcessInfo) return { supported: false, processes: [] };
+  try {
+    const processMap = await chrome.processes.getProcessInfo([], true);
+    const tabs = await chrome.tabs.query({});
+    const tabMap = new Map(tabs.map(tab => [tab.id, tab]));
+    const processes = Object.entries(processMap).map(([id, process]) => ({
+      processId: Number(id), type: process.type, cpu: process.cpu ?? 0,
+      privateMemory: process.privateMemory ?? 0,
+      tabs: (process.tasks || []).map(t => tabMap.get(t.tabId)).filter(Boolean).map(t => ({id:t.id,title:t.title||'Untitled'}))
+    })).filter(p => p.cpu > 0 || p.privateMemory > 0).sort((a,b) => b.cpu-a.cpu);
+    return { supported:true, processes:processes.slice(0,25) };
+  } catch (error) { return { supported:false, error:error.message, processes:[] }; }
+}
+
 chrome.runtime.onInstalled.addListener(async () => {
   const existing = await chrome.storage.local.get(Object.keys(DEFAULT_SETTINGS));
   await chrome.storage.local.set({ ...DEFAULT_SETTINGS, ...existing });
@@ -101,6 +116,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sleepInactiveTabs()
       .then(result => sendResponse({ success: true, ...result }))
       .catch(error => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === "getDiagnostics") {
+    getProcessDiagnostics().then(sendResponse).catch(error => sendResponse({supported:false,error:error.message,processes:[]}));
     return true;
   }
 

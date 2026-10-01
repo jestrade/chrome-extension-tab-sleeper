@@ -1,3 +1,11 @@
+const diagnostics=document.getElementById("diagnostics");
+const diagnosticsPanel=document.getElementById("diagnosticsPanel");
+const diagnosticsStatus=document.getElementById("diagnosticsStatus");
+const processList=document.getElementById("processList");
+function formatMemory(bytes){if(!bytes)return "0 MB";const mb=bytes/1024/1024;return mb<1024?`${mb.toFixed(0)} MB`:`${(mb/1024).toFixed(1)} GB`;}
+function escapeHtml(v){return String(v).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");}
+function renderDiagnostics(r){diagnosticsPanel.classList.remove("hidden");if(!r.supported){diagnosticsStatus.textContent="Unavailable";processList.innerHTML='<div class="process"><div class="processTitle">Chrome process diagnostics are unavailable.</div></div>';return;}diagnosticsStatus.textContent=`${r.processes.length} processes`;processList.innerHTML=r.processes.slice(0,8).map(p=>{const name=p.tabs.length===1?p.tabs[0].title:p.tabs.length>1?`${p.tabs.length} tabs`:p.type||"Chrome process";const tabs=p.tabs.map(t=>`<div class="processTab">${escapeHtml(t.title)}</div>`).join("");return `<div class="process"><div class="processTitle">${escapeHtml(name)}</div><div class="processMeta">CPU ${p.cpu.toFixed(1)}% · Memory ${formatMemory(p.privateMemory)} · ${escapeHtml(p.type)}</div>${tabs}</div>`;}).join("");}
+diagnostics.addEventListener("click",async()=>{diagnostics.disabled=true;diagnostics.textContent="Analyzing...";try{renderDiagnostics(await chrome.runtime.sendMessage({type:"getDiagnostics"}));}finally{diagnostics.disabled=false;diagnostics.textContent="Refresh CPU & memory";}});
 const enabled = document.getElementById("enabled");
 const inactivityMinutes = document.getElementById("inactivityMinutes");
 const sleepingTabs = document.getElementById("sleepingTabs");
