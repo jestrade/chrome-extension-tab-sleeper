@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tab Sleep Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <main>
+    <h1>Tab Sleep Settings</h1>
+    <p class="description">Configure when inactive tabs should be discarded.</p>
+
+    <section><label><input type="checkbox" id="enabled"> Enable automatic tab sleeping</label></section>
+
+    <section>
+      <label for="inactivityMinutes">Inactivity threshold</label>
+      <select id="inactivityMinutes">
+        <option value="5">5 minutes</option><option value="15">15 minutes</option>
+        <option value="30">30 minutes</option><option value="60">1 hour</option>
+        <option value="120">2 hours</option><option value="240">4 hours</option>
+        <option value="480">8 hours</option>
+      </select>
+    </section>
+
+    <section>
+      <label for="checkIntervalMinutes">Check every</label>
+      <select id="checkIntervalMinutes">
+        <option value="1">1 minute</option><option value="5">5 minutes</option>
+        <option value="10">10 minutes</option><option value="15">15 minutes</option>
+      </select>
+    </section>
+
+    <section><label><input type="checkbox" id="excludePinned"> Never sleep pinned tabs</label></section>
+    <section><label><input type="checkbox" id="excludePlayingAudio"> Never sleep tabs playing audio</label></section>
+
+    <section>
+      <label for="excludedDomains">Excluded domains</label>
+      <textarea id="excludedDomains" placeholder="gmail.com&#10;slack.com&#10;figma.com"></textarea>
+      <small>One domain per line.</small>
+    </section>
+
+    <button id="save">Save settings</button>
+    <div id="status"></div>
+  </main>
+  <script src="options.js"></script>
+</body>
+</html>
