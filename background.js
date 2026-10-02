@@ -25,7 +25,10 @@ function getHostname(url) {
 function isExcludedDomain(url, excludedDomains) {
   const hostname = getHostname(url);
   return excludedDomains.some(domain => {
-    const normalized = domain.trim().toLowerCase().replace(/^https?:\\/\\//, '').replace(/\\/$/, '');
+    let normalized = domain.trim().toLowerCase();
+    normalized = normalized.replace(/^https?:\/\//, '');
+    normalized = normalized.split('/')[0];
+    normalized = normalized.split(':')[0];
     return normalized && (hostname === normalized || hostname.endsWith(`.${normalized}`));
   });
 }
